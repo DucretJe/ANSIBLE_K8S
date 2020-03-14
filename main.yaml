@@ -1,0 +1,9 @@
+---
+    - name: Base
+        hosts: all
+        remote_user: jerome
+        sudo: yes
+
+        roles:
+            - init
+    

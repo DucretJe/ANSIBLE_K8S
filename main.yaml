@@ -1,9 +1,7 @@
 ---
     - name: Base
-        hosts: all
-        remote_user: jerome
-        sudo: yes
+      hosts: master
+      remote_user: jerome
 
-        roles:
-            - init
-    
+      roles:
+        - init

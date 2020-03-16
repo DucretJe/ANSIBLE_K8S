@@ -7,6 +7,10 @@
       - pip install --upgrade ansible ansible-lint
       - ansible --version
       - ansible-lint --version
+      - echo "$ANSIBLE_PASS" > ".tmpass"
+      - sed -i "s/{{ SSHROOT }}/'$SSHROOT'/" secrets.yml
+      - cat secrets.yml
+      - ansible-vault encrypt secrets.yml --vault-password-file .tmpass
   
     stages:
       - ansible-syntax-check
@@ -15,12 +19,13 @@
     ansible-syntax-check:
       stage: ansible-syntax-check
       script:
-        - ansible-playbook --inventory inventory --syntax-check main.yaml
+        - ansible-playbook --inventory inventory --syntax-check main.yaml --vault-password-file .tmpass
+        - rm .tmpass
   
   
     ansible-lint:
       stage: ansible-lint
       script:
-        - ansible-lint main.yaml
+        - ansible-lint main.yaml 
       allow_failure: true
   

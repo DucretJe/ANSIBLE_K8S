@@ -1,0 +1,106 @@
+---
+  - name: Updating cache
+    apt:
+      update_cache: yes
+
+  - name: Fixing aptitude missing
+    apt:
+      upgrade: dist
+
+  - name: Updating cache
+    apt:
+      update_cache: yes
+
+  - name: Installing dependancies for Docker
+    apt:
+      pkg:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg2
+      - software-properties-common
+      - rpm
+
+  - name: Adding Docker's official GPG key
+    apt_key:
+      state: present
+      url: https://download.docker.com/linux/debian/gpg
+
+  - name: Set distribution
+    command: lsb_release -cs
+    register: distrib
+    changed_when: True
+
+  - name: Setting up the stable repository
+    apt_repository:
+      repo: deb [arch=amd64] https://download.docker.com/linux/debian {{ distrib.stdout }} stable
+      state: present
+
+  - name: Updating cache
+    apt:
+      update_cache: yes
+
+  - name: Installing Docker
+    apt:
+      pkg:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - python-pip
+
+  - name: Install pip docker libraries
+    pip:
+      name:
+        - docker
+        - docker-compose
+        - rpm
+
+  - name: uname -s
+    command: uname -s
+    register: unames
+    changed_when: False
+
+  - name: uname -m
+    command: uname -m
+    register: unamem
+    changed_when: False
+
+  - name: Downloading latest stable docker-compose
+    get_url:
+      url: https://github.com/docker/compose/releases/download/1.24.1/docker-compose-{{ unames.stdout }}-{{ unamem.stdout }}
+      dest: /usr/local/bin/docker-compose
+      mode: 640
+
+  - name: Applying executable permissions to the binary
+    file:
+      path: "/usr/local/bin/docker-compose"
+      state: touch
+      mode: u=rwx,g=wx,u-rwx
+
+  - name: Creating daemon.json file for docker
+    copy:
+      dest: "/etc/docker/daemon.json"
+      content: >
+        {
+          "exec-opts": ["native.cgroupdriver=systemd"],
+          "log-driver": "json-file",
+          "log-opts": {
+            "max-size": "100m"
+          },
+          "storage-driver": "overlay2"
+        }
+
+  - name: Creating directory for docker in systemd
+    file:
+      path: "/etc/systemd/system/docker.service.d"
+      state: directory
+      mode: 0750
+
+  - name: Restart daemons
+    systemd:
+      daemon_reload: yes
+
+  - name: Restart docker
+    systemd:
+      name: docker
+      state: restarted

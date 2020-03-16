@@ -1,9 +1,11 @@
 ---
     - name: Base
-        hosts: all
-        remote_user: jerome
-        sudo: yes
+      hosts: all
+      remote_user: jerome
+      become: yes
 
-        roles:
-            - init
-    
+      roles:
+        - role: docker
+
+      vars_files:
+        - ./secrets.yml

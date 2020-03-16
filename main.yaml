@@ -1,7 +1,11 @@
 ---
     - name: Base
-      hosts: master
+      hosts: all
       remote_user: jerome
+      become: yes
 
       roles:
-        - init
+        - role: docker
+
+      vars_files:
+        - ./secrets.yml

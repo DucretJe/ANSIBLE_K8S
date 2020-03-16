@@ -1,8 +1,6 @@
 ---
     all:
         hosts:
-            192.168.1.59
-            192.168.1.48
         children:
             master:
                 hosts:
@@ -10,3 +8,9 @@
             nodes:
                 hosts:
                     192.168.1.48
+        vars:
+            ansible_connection: ssh
+            ansible_user: jerome
+            ansible_password: "{{ sshroot }}"
+            ansible_become_password: "{{ sshroot }}"
+            ansible_python_interpreter: /usr/bin/python

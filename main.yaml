@@ -6,6 +6,7 @@
 
       roles:
         - role: docker
+        - role: kubeadm
 
       vars_files:
         - ./secrets.yml

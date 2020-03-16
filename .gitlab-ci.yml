@@ -9,11 +9,6 @@
       - ansible-lint --version
       - echo "$ANSIBLE_PASS" > ".tmpass"
       - cat .tmpass
-      - cat > secrets.yml << EOF
-      sshroot: "$ROOT_PASS"
-      EOF
-      - cat secrets.yml      
-
   
     stages:
       - ansible-syntax-check

@@ -9,6 +9,7 @@
       - ansible-lint --version
       - echo "$ANSIBLE_PASS" > ".tmpass"
       - cat .tmpass
+      - sed -i 's/{{ SSHROOT }}/"$SSHROOT"/' secrets.yml
   
     stages:
       - ansible-syntax-check

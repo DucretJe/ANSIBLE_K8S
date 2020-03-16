@@ -8,7 +8,7 @@
       - ansible --version
       - ansible-lint --version
       - echo "$ANSIBLE_PASS" > ".tmpass"
-      - sed -i 's/{{ SSHROOT }}/"$SSHROOT"/' secrets.yml
+      - sed -i "s/{{ SSHROOT }}/'$SSHROOT'/" secrets.yml
       - cat secrets.yml
       - ansible-vault encrypt secrets.yml --vault-password-file .tmpass
   

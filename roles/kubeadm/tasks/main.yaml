@@ -1,0 +1,20 @@
+---
+    - name: Getting gpg key
+      apt_key:
+        state: present
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+
+    - name: Editing list of sources
+      apt_repository:
+        repo: deb [arch=amd64] https://apt.kubernetes.io/ kubernetes-xenial main
+
+    - name: Update
+      apt:
+        update_cache: yes
+
+    - name: Install kube*
+      apt:
+        pkg:
+            - kubelet
+            - kubeadm
+            - kubectl

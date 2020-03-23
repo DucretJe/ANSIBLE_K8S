@@ -1,0 +1,88 @@
+---
+    - name: Check if kubelet is running
+      service:
+        name: kubelet
+        state: started
+        enabled: true
+
+    - name: Verify if Kubelet is running properly
+      systemd:
+        name: kubelet
+        state: started
+      register: Kubelet_Ok
+      ignore_errors: yes
+      when: true
+
+    - debug:
+        var: Kubelet_Ok
+
+    - name: Fixing Kubelet if needed
+      lineinfile:
+        path: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+        line: Environment="KUBELET_EXTRA_ARGS=--cgroup-driver=systemd"
+      when: "'activating' in Kubelet_Ok.status.ActiveState"
+
+    - name: Restarting kubelet (if fix is needed)
+      service:
+        name: kubelet
+        state: restarted
+        enabled: true
+      when: "'activating' in Kubelet_Ok.status.ActiveState"
+
+    - name: Check if a Master is already initialized
+      stat:
+        path: "/etc/kubernetes/admin.conf"
+      register: Master_Is_Init
+
+    - name: Init Master node
+      command: kubeadm init --pod-network-cidr=192.168.0.0/16
+      register: Init_Master
+      when: not Master_Is_Init.stat.exists
+
+    - name: Create the .kube repository if not exists
+      file:
+        path: ~/.kube
+        state: directory
+      become: false
+
+    - name: Copying the admin.conf to config
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: "/home/{{ user }}/.kube/config"
+        remote_src: yes
+        owner: "{{ user }}"
+        group: "{{ group }}"
+        mode: '0600'
+
+    - name: Verify if Calico is already deployed
+      command: kubectl get pods -n kube-system
+      retries: 3
+      delay: 3
+      register: Deployed_Pods_System
+      until: Deployed_Pods_System.rc == 0
+      ignore_errors: yes
+      become: false
+      when: true
+
+    - name: Create Calico network pod
+      command: kubectl apply -f https://docs.projectcalico.org/v3.8/manifests/calico.yaml
+      retries: 3
+      delay: 3
+      register: Init_Calico
+      until: Init_Calico.rc == 0
+      changed_when: "'created' in Init_Calico.stdout"
+      when: not 'calico' in Deployed_Pods_System.stdout
+      become: false
+
+    - name: Get token
+      command: kubeadm token list  | grep token | awk '{print $1}'
+      register: Token
+      when: Init_Calico is succeeded
+      become: false
+
+    - name: Get ca cert hash
+      shell: openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
+      register: Cert
+      when: Init_Calico is succeeded
+      become: false
+      ignore_errors: yes

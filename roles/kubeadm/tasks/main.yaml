@@ -18,3 +18,66 @@
             - kubelet
             - kubeadm
             - kubectl
+      register: kube_installed
+
+    - name: Calculate swap
+      shell : free -m | grep Swap | awk '{print $2}'
+      register: swap_used
+      when: true
+      ignore_errors: yes
+
+    - name: Calculate swap partition (1/2)
+      shell: swapon -s | awk 'NR==2{print $1}'  | sed 's/[0-9].*/''/'
+      register: dir1
+      when: (swap_used.stdout_lines[0] | int) > 0
+      ignore_errors: yes
+
+    - name: Calculate swap partition (2/2)
+      shell: swapon -s | awk 'NR==2{print $1}'  | sed 's/\/dev\/sd[a-z]/''/'
+      register: dir2
+      when: (swap_used.stdout_lines[0] | int) > 0
+      ignore_errors: yes
+
+    - name: Show where the swap is mounted
+      shell: swapon -s | awk 'NR==2{print $1}'
+      register: swap
+      when: (swap_used.stdout_lines[0] | int) > 0
+      ignore_errors: yes
+
+    - debug:
+        var: dir1
+
+    - name: Force quit Swap
+      command: swapoff {{ swap.stdout }}
+      when: (swap_used.stdout_lines[0] | int) > 0
+
+    - name: Disabling SWAP
+      command: "swapoff --all"
+      when: (swap_used.stdout_lines[0] | int) > 0
+
+    - name: Disable SWAP permanently
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
+        replace: '# \1'
+      when: (swap_used.stdout_lines[0] | int) > 0
+
+    - name: Delete resume
+      replace:
+        path: /etc/initramfs-tools/conf.d/resume
+        regexp: '^RESUME=UUID='
+        replace: '#RESUME=UUID='
+      when: (swap_used.stdout_lines[0] | int) > 0
+
+    - name: Delete swap partition
+      parted:
+        device: "{{ dir1.stdout }}"
+        number: "{{ dir2.stdout }}"
+        state: absent
+      when: (swap_used.stdout_lines[0] | int) > 0
+
+    - name: Set swappiness to 0
+      lineinfile:
+        path: /etc/sysctl.conf
+        insertafter: EOF
+        line: vm.swappiness = 0

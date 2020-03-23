@@ -20,6 +20,7 @@
       - gnupg2
       - software-properties-common
       - rpm
+      - parted
 
   - name: Adding Docker's official GPG key
     apt_key:

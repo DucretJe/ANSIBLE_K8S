@@ -10,3 +10,14 @@
 
       vars_files:
         - ./secrets.yml
+
+    - name: Master
+      hosts: master
+      remote_user: jerome
+      become: yes
+
+      roles:
+        - master_init
+
+      vars_files:
+        - ./secrets.yml

@@ -1,0 +1,88 @@
+---
+    - name: Check if kubelet is running
+      service:
+        name: kubelet
+        state: started
+        enabled: true
+
+    - name: Verify if Kubelet is running properly
+      systemd:
+        name: kubelet
+        state: started
+      register: Kubelet_Ok
+      ignore_errors: yes
+      when: true
+
+    - name: Fixing Kubelet if needed
+      lineinfile:
+        path: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+        line: Environment="KUBELET_EXTRA_ARGS=--cgroup-driver=systemd"
+      when: "'activating' in Kubelet_Ok.status.ActiveState"
+
+    - name: Restarting kubelet (if fix is needed)
+      service:
+        name: kubelet
+        state: restarted
+        enabled: true
+      when: "'activating' in Kubelet_Ok.status.ActiveState"
+
+    - name: Testing if conf file is already present
+      command: kubectl get nodes
+      register: conf_created
+      ignore_errors: yes
+      when: true
+
+    - name: Testing if a master is already joined
+      stat:
+        path: /etc/kubernetes/kubelet.conf
+      register: master_joined
+
+    - name: create unique hostname
+      command: openssl rand -hex 8
+      register: unique_name
+      when: not master_joined.stat.exists
+
+    - name: Renaming host
+      hostname:
+        name: "{{ unique_name.stdout }}"
+      when: not master_joined.stat.exists
+
+    - name: Changing /etc/hosts
+      replace:
+        path: /etc/hosts
+        regexp: '127.0.1.1\s*[a-z]*'
+        replace: '127.0.1.1\t{{ unique_name.stdout }}'
+      when: not master_joined.stat.exists
+
+    - name: Rebooting
+      reboot:
+      when: not master_joined.stat.exists
+
+    - name: Join Master
+      command: >
+        kubeadm join --token {{ hostvars['192.168.1.59']['token_master'] }}
+        {{ hostvars['192.168.1.59']['ip_master'] }}:{{ hostvars['192.168.1.59']['port_master'] }}
+        --discovery-token-ca-cert-hash sha256:{{ hostvars['192.168.1.59']['cert_master'] }}
+      when: not master_joined.stat.exists
+
+    - name: Create the .kube repository if not exists
+      file:
+        path: /home/{{ ansible_user }}/.kube
+        state: directory
+      become: false
+      when: "'no configuration has been provided' in conf_created.stderr"
+
+    - name: Create the conf file
+      file:
+        path: /home/{{ ansible_user }}/.kube/config
+        state: touch
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: 0600
+      when: "'no configuration has been provided' in conf_created.stderr"
+
+    - name: Filling the conf file
+      blockinfile:
+        block: "{{ hostvars['192.168.1.59']['config_master'] }}"
+        dest: /home/{{ ansible_user }}/.kube/config
+      when: "'no configuration has been provided' in conf_created.stderr"

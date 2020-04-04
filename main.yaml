@@ -21,3 +21,14 @@
 
       vars_files:
         - ./secrets.yml
+
+    - name: Workers
+      hosts: nodes
+      remote_user: jerome
+      become: yes
+
+      roles:
+        - worker_init
+
+      vars_files:
+        - ./secrets.yml

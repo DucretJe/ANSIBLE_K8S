@@ -13,9 +13,6 @@
       ignore_errors: yes
       when: true
 
-    - debug:
-        var: Kubelet_Ok
-
     - name: Fixing Kubelet if needed
       lineinfile:
         path: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
@@ -57,7 +54,7 @@
     - name: Verify if Calico is already deployed
       command: kubectl get pods -n kube-system
       retries: 3
-      delay: 3
+      delay: 10
       register: Deployed_Pods_System
       until: Deployed_Pods_System.rc == 0
       ignore_errors: yes
@@ -71,14 +68,15 @@
       register: Init_Calico
       until: Init_Calico.rc == 0
       changed_when: "'created' in Init_Calico.stdout"
-      when: not 'calico' in Deployed_Pods_System.stdout
+      when: not '\ncalico' in Deployed_Pods_System.stdout
       become: false
 
     - name: Get token
-      command: kubeadm token list  | grep token | awk '{print $1}'
+      shell: kubeadm token list  | grep token | awk '{print $1}'
       register: Token
       when: Init_Calico is succeeded
       become: false
+      ignore_errors: yes
 
     - name: Get ca cert hash
       shell: openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
@@ -86,3 +84,30 @@
       when: Init_Calico is succeeded
       become: false
       ignore_errors: yes
+
+    - name: Get IP of Master
+      shell: kubectl get nodes -o wide | grep "master" | awk '{print $6}'
+      register: Master_IP
+      when: Init_Calico is succeeded
+      become: false
+      ignore_errors: yes
+
+    - name: Get port of Master
+      shell: ss -tulnp | grep kube-apiserver | awk '{print $5}' | sed 's/://g'
+      register: Master_Port
+      when: Init_Calico is succeeded
+      become: true
+      ignore_errors: yes
+
+    - name: Get Configuration from Master
+      command: cat .kube/config
+      register: Config
+      when: true
+
+    - name: Fact creation
+      set_fact:
+        token_master: "{{ Token.stdout }}"
+        cert_master: "{{ Cert.stdout }}"
+        ip_master: "{{ Master_IP.stdout }}"
+        port_master: "{{ Master_Port.stdout }}"
+        config_master: "{{ Config.stdout }}"

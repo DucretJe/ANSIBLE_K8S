@@ -44,9 +44,6 @@
       when: (swap_used.stdout_lines[0] | int) > 0
       ignore_errors: yes
 
-    - debug:
-        var: dir1
-
     - name: Force quit Swap
       command: swapoff {{ swap.stdout }}
       when: (swap_used.stdout_lines[0] | int) > 0
